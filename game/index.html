@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sunset Courier — Golden Hour Run</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #1a2233;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #f5f2e8; }
+  #game { position: fixed; inset: 0; }
+  #game canvas { display: block; }
+  .hidden { display: none !important; }
+
+  /* ---- HUD ---- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  .panel { position: absolute; background: rgba(12, 16, 22, 0.62); border: 1px solid rgba(255, 210, 140, 0.35);
+    border-radius: 10px; padding: 10px 14px; backdrop-filter: blur(2px); }
+  .panel .label { font-size: 11px; letter-spacing: 0.14em; color: #ffb46b; text-transform: uppercase; }
+  .panel .value { font-size: 26px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+  .panel .sub { font-size: 12px; color: #c8d4de; }
+  #altBox { top: 14px; left: 14px; }
+  #speedBox { top: 14px; left: 168px; }
+  #headBox { top: 14px; left: 322px; }
+  #rightBox { top: 14px; right: 14px; text-align: right; }
+  #rightBox .value { font-size: 20px; }
+  #rightBox .low { color: #ff5a4a; }
+  #compass { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: 340px; height: 34px;
+    background: rgba(12, 16, 22, 0.62); border: 1px solid rgba(255, 210, 140, 0.35); border-radius: 10px; overflow: hidden; }
+  #compass .ctick { position: absolute; top: 8px; transform: translateX(-50%); font-size: 13px; color: #c8d4de; }
+  #compass .ctick.major { color: #ffd27a; font-weight: 700; font-size: 14px; }
+  #compass .cneedle { position: absolute; left: 50%; top: 0; transform: translateX(-50%); color: #ff7a2a; font-size: 13px; }
+  #objective { position: absolute; top: 106px; left: 50%; transform: translateX(-50%); max-width: 560px; text-align: center;
+    font-size: 13.5px; color: #ffe9c4; background: rgba(12, 16, 22, 0.55); padding: 7px 14px; border-radius: 8px; }
+  #warning { position: absolute; top: 110px; left: 50%; transform: translateX(-50%); font-size: 20px; font-weight: 800;
+    color: #ff5a4a; background: rgba(20, 8, 8, 0.7); padding: 8px 16px; border-radius: 8px; display: none; }
+  #warning.show { display: block; animation: blink 0.7s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0.35; } }
+  #message { position: absolute; top: 38%; left: 50%; transform: translateX(-50%); font-size: 24px; font-weight: 700;
+    color: #ffe9c4; text-shadow: 0 2px 8px rgba(0,0,0,0.7); display: none; text-align: center; }
+  #message.show { display: block; }
+  #hints { position: absolute; bottom: 12px; left: 14px; font-size: 12.5px; color: #d8e2ea;
+    background: rgba(12, 16, 22, 0.55); padding: 8px 12px; border-radius: 8px; line-height: 1.55; }
+  #instruments { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    border: 1px solid rgba(255, 210, 140, 0.4); border-radius: 10px; background: rgba(12, 16, 22, 0.6); }
+
+  /* ---- Screens ---- */
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, rgba(26, 20, 40, 0.55), rgba(60, 28, 10, 0.62)); }
+  .card { max-width: 660px; width: calc(100% - 48px); background: rgba(14, 18, 28, 0.88); border: 1px solid rgba(255, 210, 140, 0.4);
+    border-radius: 16px; padding: 28px 32px; text-align: center; box-shadow: 0 18px 60px rgba(0,0,0,0.5); }
+  .card h1 { margin: 0 0 4px; font-size: 40px; letter-spacing: 0.02em; color: #ffd27a; }
+  .card h2 { margin: 0 0 14px; font-size: 20px; color: #f5f2e8; }
+  .card p { margin: 8px 0 16px; font-size: 15px; line-height: 1.55; color: #d8e2ea; }
+  .missions { display: flex; gap: 12px; margin: 18px 0; }
+  .mission { flex: 1; text-align: left; background: rgba(255, 210, 140, 0.08); border: 1px solid rgba(255, 210, 140, 0.35);
+    border-radius: 12px; padding: 14px; cursor: pointer; }
+  .mission:hover { background: rgba(255, 210, 140, 0.18); border-color: #ffd27a; }
+  .mission h3 { margin: 0 0 6px; font-size: 17px; color: #ffd27a; }
+  .mission p { margin: 0; font-size: 13px; line-height: 1.45; color: #d8e2ea; }
+  .mission .key { display: inline-block; margin-top: 8px; font-size: 11px; color: #9fb4c4; }
+  .controls { font-size: 13px; color: #c8d4de; line-height: 1.7; text-align: left; column-count: 2; column-gap: 28px;
+    background: rgba(255,255,255,0.04); border-radius: 10px; padding: 12px 16px; }
+  .controls b { color: #ffd27a; }
+  .btn { display: inline-block; margin-top: 16px; padding: 12px 26px; font-size: 16px; font-weight: 700; color: #1a2233;
+    background: #ffd27a; border: 0; border-radius: 10px; cursor: pointer; }
+  .btn:hover { background: #ffcf8a; }
+  .btn.ghost { background: transparent; color: #ffd27a; border: 1px solid #ffd27a; }
+  #endLines { font-size: 15px; line-height: 1.7; color: #d8e2ea; margin: 10px 0; }
+  #endScore { font-size: 26px; font-weight: 800; color: #ffd27a; margin: 12px 0 4px; }
+  .fine { font-size: 12px; color: #9fb4c4; margin-top: 14px; }
+</style>
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud" class="hidden">
+  <div class="panel" id="altBox"><div class="label">Altitude</div><div class="value" id="alt">0 m</div><div class="sub">VS <span id="vspeed">+0.0 m/s</span></div></div>
+  <div class="panel" id="speedBox"><div class="label">Airspeed</div><div class="value" id="speed">0 km/h</div><div class="sub" id="gear">GEAR DOWN</div></div>
+  <div class="panel" id="headBox"><div class="label">Heading</div><div class="value" id="heading">0° N</div><div class="sub" id="flaps">FLAPS UP</div></div>
+  <div class="panel" id="rightBox">
+    <div class="label">Throttle <span class="value" id="throttle">0%</span></div>
+    <div class="label">Fuel <span class="value" id="fuel">100%</span></div>
+    <div class="label">Score <span class="value" id="score">0</span></div>
+    <div class="sub">Time <span id="clock">0:00</span></div>
+  </div>
+  <div id="compass"></div>
+  <div id="objective"></div>
+  <div id="warning"></div>
+  <div id="message"></div>
+  <div id="hints">↑↓ pitch &nbsp;·&nbsp; ←→ bank &nbsp;·&nbsp; A/D rudder &nbsp;·&nbsp; W/S throttle &nbsp;·&nbsp; F flaps &nbsp;·&nbsp; G gear<br>C camera &nbsp;·&nbsp; P pause &nbsp;·&nbsp; R reset &nbsp;·&nbsp; M mute &nbsp;·&nbsp; Esc menu</div>
+  <canvas id="instruments" class="hidden" width="320" height="150"></canvas>
+</div>
+
+<div id="menu" class="screen">
+  <div class="card">
+    <h1>Sunset Courier</h1>
+    <h2>Golden Hour Run over Amber Valley</h2>
+    <p>Fly the Kestrel bush plane at sunset: thread the glowing rings, nurse the fuel,
+       and bring her home to Marigold Field in one piece. The valley is yours — the wind is not.</p>
+    <div class="missions">
+      <div class="mission" data-mission="rally"><h3>Ring Rally</h3><p>Thread all six rings over the valley, in order. Smooth flying beats fast flying.</p><span class="key">press 1</span></div>
+      <div class="mission" data-mission="landing"><h3>Bush Landing</h3><p>1.8 km out, 220 m up. Land gentle, slow and on the centreline — gear down.</p><span class="key">press 2</span></div>
+      <div class="mission" data-mission="courier"><h3>Courier Run</h3><p>Four rings, then land. The clock and the fuel gauge are both running.</p><span class="key">press 3</span></div>
+    </div>
+    <div class="controls">
+      <div><b>↑ / ↓</b> pitch up / down</div><div><b>← / →</b> bank left / right</div>
+      <div><b>A / D</b> rudder</div><div><b>W / S</b> throttle up / down</div>
+      <div><b>F</b> flaps</div><div><b>G</b> landing gear</div>
+      <div><b>C</b> chase / cockpit view</div><div><b>P</b> pause &nbsp; <b>R</b> reset</div>
+      <div><b>M</b> mute</div><div><b>Esc</b> back to menu</div>
+    </div>
+    <p class="fine">Stall below 27 m/s (22 with flaps). Land on the runway, gear down, slower than 48 m/s and gentler than 4.5 m/s down. Fuel runs out — glide home.</p>
+  </div>
+</div>
+
+<div id="pauseScreen" class="screen hidden">
+  <div class="card">
+    <h2>Paused</h2>
+    <p>The Kestrel is holding her breath. Take a look at the valley, then get back to it.</p>
+    <button class="btn" id="resumeBtn">Resume (P)</button>
+    <button class="btn ghost" id="menuBtn">Main menu (Esc)</button>
+  </div>
+</div>
+
+<div id="endScreen" class="screen hidden">
+  <div class="card">
+    <h2 id="endTitle">Mission complete</h2>
+    <div id="endLines"></div>
+    <div id="endScore">Score: 0</div>
+    <button class="btn" id="againBtn">Fly it again (R)</button>
+    <button class="btn ghost" id="endMenuBtn">Main menu</button>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="src/util.js"></script>
+<script src="src/terrain.js"></script>
+<script src="src/aircraft.js"></script>
+<script src="src/flight.js"></script>
+<script src="src/missions.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/hud.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>
